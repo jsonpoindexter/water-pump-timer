@@ -6,7 +6,8 @@
 #define PEDAL_SECONDS 30 // How much time (in s) to add for each pedal push
 #define USE_FLOAT true // Use float pin in logic to turn output HIGH
 #define FLOAT_PIN 3
-#define OUTPUT_PIN 13
+#define SHOWER_PUMP_PIN 13
+#define EVAP_PUMP_PIN 14
 #define DEBOUNCE_DELAY 50 // the debounce time; increase if the output flickers
 #define USE_TEMP_SENSOR true
 #define TEMP_MIN 70 // Minimum temperature to turn pump on
@@ -37,14 +38,18 @@ int floatState; // HIGH == Low Water
 int previousFloatState = LOW;
 unsigned long lastFloatDebounceTime = 0;     
 
-// Motor Output
-unsigned long previousOutputMillis = 0;      
-int outputOnTime = 0;  // How long (in s) to turn the output io HIGH for
-unsigned long currentMillis;
+// Shower Pump Output
+unsigned long previousShowerMillis = 0;      
+int showerOnTime = 0;  // How long (in s) to turn the output io HIGH for
 
-// Temp Sensor
+// Evap Pump
+unsigned long previousEvapMillis = 0;     
+
+// Temperature
 int temperature;
 unsigned long previousTempMillis = 0;
+
+unsigned long currentMillis;
 
 void setup() {
   Serial.begin(9600);
@@ -54,7 +59,7 @@ void setup() {
   Serial.print("PEDAL_SECONDS: "); Serial.println(PEDAL_SECONDS);
   Serial.print("PEDAL_PIN: "); Serial.println(PEDAL_PIN);
   Serial.print("FLOAT_PIN: "); Serial.println(FLOAT_PIN);
-  Serial.print("OUTPUT_PIN: "); Serial.println(OUTPUT_PIN);
+  Serial.print("SHOWER_PUMP_PIN: "); Serial.println(SHOWER_PUMP_PIN);
   Serial.print("DEBOUNCE_DELAY(ms): "); Serial.println(DEBOUNCE_DELAY);
   #if (USE_TEMP_SENSOR)
     Serial.print("TEMP_MIN: "); Serial.println(TEMP_MIN);
@@ -64,7 +69,7 @@ void setup() {
   Serial.println("------------------------------------------------\n");
   pinMode(PEDAL_PIN, INPUT);
   pinMode(FLOAT_PIN, INPUT);
-  pinMode(OUTPUT_PIN, OUTPUT);
+  pinMode(SHOWER_PUMP_PIN, OUTPUT);
   #if (USE_TEMP_SENSOR)
     dht.begin();
   #endif
@@ -76,7 +81,8 @@ void loop() {
   pollPedal();
   pollFloat();
   pollTemp();
-  output();
+  showerPump();
+  evapPump();
 }
 
 void pollPedal(){
@@ -90,7 +96,7 @@ void pollPedal(){
     if (currentPedalState != pedalState) {
       if (pedalState == HIGH) {
          Serial.println("pedalState: HIGH");
-         outputOnTime += PEDAL_SECONDS;
+         showerOnTime += PEDAL_SECONDS;
       }
       pedalState = currentPedalState;
     }
@@ -109,7 +115,7 @@ void pollFloat(){
     if (currentFloatState != floatState) {
       if (floatState == HIGH) {
          Serial.println("floatState: HIGH - Low Water");
-         if (USE_FLOAT) outputOnTime = 0;
+         if (USE_FLOAT) showerOnTime = 0;
       } else {
         Serial.println("floatState: LOW - Adequate Water");
       }
@@ -128,23 +134,34 @@ void pollTemp() {
       // float temp = dht.readTemperature();
       // Read temperature as Fahrenheit (isFahrenheit = true)
       temperature = dht.readTemperature(true);
-//      Serial.print("temperature: ");
-//      Serial.print(temperature);
-//      Serial.println("°F");
+      Serial.print("temperature: ");Serial.print(temperature);Serial.println("°F");
       
     }
   #endif
 }
 
-void output(){
-  if(currentMillis - previousOutputMillis > 1000) {
-    if(outputOnTime > 0) {
-      Serial.print("outputOnTime: ");Serial.println(outputOnTime);
-      digitalWrite(OUTPUT_PIN, HIGH);
-      outputOnTime = outputOnTime - 1;
-      previousOutputMillis = currentMillis;
+void showerPump(){
+  if(currentMillis - previousShowerMillis > 1000) {
+    if(showerOnTime > 0) {
+      Serial.print("showerOnTime: ");Serial.println(showerOnTime);
+      digitalWrite(SHOWER_PUMP_PIN, HIGH);
+      showerOnTime = showerOnTime - 1;
+      previousShowerMillis = currentMillis;
     } else {
-      digitalWrite(OUTPUT_PIN, LOW);
+      digitalWrite(SHOWER_PUMP_PIN, LOW);
+    }
+  } 
+}
+
+void evapPump() {
+  if(currentMillis - previousEvapMillis) {
+    if( USE_TEMP_SENSOR && (temperature > TEMP_MIN)) {
+      Serial.println("evapPump: ON");
+      digitalWrite(EVAP_PUMP_PIN, HIGH);
+      previousEvapMillis = currentMillis;
+    } else {
+      Serial.println("evapPump: OFF");
+      digitalWrite(EVAP_PUMP_PIN, LOW);
     }
   } 
 }
