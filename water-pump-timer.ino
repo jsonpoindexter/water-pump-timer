@@ -10,11 +10,19 @@
 #define DEBOUNCE_DELAY 50 // the debounce time; increase if the output flickers
 #define USE_TEMP_SENSOR true
 #define TEMP_MIN 70 // Minimum temperature to turn pump on
-#define DHT22_PIN 7
+#define DHT_PIN 4
 #define TEMP_INTERVAL 2000 // Time between polling temp sensor (minimum of 2s
 #if (USE_TEMP_SENSOR)
-#include <DHT22.h>
-DHT22 myDHT22(DHT22_PIN);
+  #include <Adafruit_Sensor.h>
+  #include <DHT.h>
+  // REQUIRES the following Arduino libraries:
+  // - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
+  // - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
+  // Uncomment whatever type you're using!
+  //#define DHTTYPE DHT11   // DHT 11
+  #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+  //#define DHTTYPE DHT21   // DHT 21 (AM2301)
+  DHT dht(DHT_PIN, DHTTYPE);
 #endif
 
 
@@ -35,8 +43,8 @@ int outputOnTime = 0;  // How long (in s) to turn the output io HIGH for
 unsigned long currentMillis;
 
 // Temp Sensor
+int temperature;
 unsigned long previousTempMillis = 0;
-DHT22_ERROR_t errorCode;
 
 void setup() {
   Serial.begin(9600);
@@ -47,11 +55,20 @@ void setup() {
   Serial.print("PEDAL_PIN: "); Serial.println(PEDAL_PIN);
   Serial.print("FLOAT_PIN: "); Serial.println(FLOAT_PIN);
   Serial.print("OUTPUT_PIN: "); Serial.println(OUTPUT_PIN);
-  Serial.print("DEBOUNCE_DELAY: "); Serial.println(DEBOUNCE_DELAY);
+  Serial.print("DEBOUNCE_DELAY(ms): "); Serial.println(DEBOUNCE_DELAY);
+  #if (USE_TEMP_SENSOR)
+    Serial.print("TEMP_MIN: "); Serial.println(TEMP_MIN);
+    Serial.print("TEMP_INTERVAL: "); Serial.println(TEMP_INTERVAL);
+    Serial.print("DHT_PIN: "); Serial.println(DHT_PIN);
+  #endif
   Serial.println("------------------------------------------------\n");
   pinMode(PEDAL_PIN, INPUT);
   pinMode(FLOAT_PIN, INPUT);
   pinMode(OUTPUT_PIN, OUTPUT);
+  #if (USE_TEMP_SENSOR)
+    dht.begin();
+  #endif
+ 
 }
 
 void loop() {
@@ -88,7 +105,7 @@ void pollFloat(){
     lastFloatDebounceTime = currentMillis;
   }
 
-  if (currentMillis - lastFloatDebounceTime) > DEBOUNCE_DELAY) {
+  if ((currentMillis - lastFloatDebounceTime) > DEBOUNCE_DELAY) {
     if (currentFloatState != floatState) {
       if (floatState == HIGH) {
          Serial.println("floatState: HIGH - Low Water");
@@ -104,44 +121,17 @@ void pollFloat(){
 
 void pollTemp() {
   #if (USE_TEMP_SENSOR)
-    if ( currentMillis - previouseTempMillis > TEMP_INTERVAL) {
+    if ( currentMillis - previousTempMillis > TEMP_INTERVAL) {
       previousTempMillis = currentMillis;
-      Serial.println("Requesting data...");
-      errorCode = myDHT22.readData();
-      switch(errorCode) {
-        case DHT_ERROR_NONE:
-          Serial.print("Got Data ");
-          Serial.print(myDHT22.getTemperatureC());
-          Serial.print("C ");
-          Serial.print(myDHT22.getHumidity());
-          Serial.println("%");
-          break;
-        case DHT_ERROR_CHECKSUM:
-          Serial.print("check sum error ");
-          Serial.print(myDHT22.getTemperatureC());
-          Serial.print("C ");
-          Serial.print(myDHT22.getHumidity());
-          Serial.println("%");
-          break;
-        case DHT_BUS_HUNG:
-          Serial.println("BUS Hung ");
-          break;
-        case DHT_ERROR_NOT_PRESENT:
-          Serial.println("Not Present ");
-          break;
-        case DHT_ERROR_ACK_TOO_LONG:
-          Serial.println("ACK time out ");
-          break;
-        case DHT_ERROR_SYNC_TIMEOUT:
-          Serial.println("Sync Timeout ");
-          break;
-        case DHT_ERROR_DATA_TIMEOUT:
-          Serial.println("Data Timeout ");
-          break;
-        case DHT_ERROR_TOOQUICK:
-          Serial.println("Polled to quick ");
-          break;
-      }
+      // float h = dht.readHumidity();
+      // Read temperature as Celsius (the default)
+      // float temp = dht.readTemperature();
+      // Read temperature as Fahrenheit (isFahrenheit = true)
+      temperature = dht.readTemperature(true);
+//      Serial.print("temperature: ");
+//      Serial.print(temperature);
+//      Serial.println("°F");
+      
     }
   #endif
 }
