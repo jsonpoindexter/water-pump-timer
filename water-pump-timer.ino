@@ -2,29 +2,34 @@
 // can be increased by each momentary switch activation.
 
 /* -------------------- Config -------------------- */
+
 #define PEDAL_PIN 2
 #define PEDAL_SECONDS 30 // How much time (in s) to add for each pedal push
+
 #define USE_FLOAT true // Use float pin in logic to turn output HIGH
 #define FLOAT_PIN 3
-#define SHOWER_PUMP_PIN 13
-#define EVAP_PUMP_PIN 14
-#define DEBOUNCE_DELAY 50 // the debounce time; increase if the output flickers
+
+#define SHOWER_PUMP_PIN 4
+
+#define EVAP_PUMP_PIN 5
+#define EVAP_SECONDS 60 * 5 // How long to run the evap pump every TEMP_INTERVAL
+
 #define USE_TEMP_SENSOR true
-#define TEMP_MIN 70 // Minimum temperature to turn pump on
-#define DHT_PIN 4
-#define TEMP_INTERVAL 2000 // Time between polling temp sensor (minimum of 2s
 #if (USE_TEMP_SENSOR)
+  #define TEMP_INTERVAL 2000 // Time between polling temp sensor (minimum of 2s)
+  #define DHT_PIN 4
+  #define TEMP_MIN 70 // Minimum temperature to turn pump on
   #include <Adafruit_Sensor.h>
   #include <DHT.h>
   // REQUIRES the following Arduino libraries:
   // - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
   // - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
-  // Uncomment whatever type you're using!
   //#define DHTTYPE DHT11   // DHT 11
   #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
   //#define DHTTYPE DHT21   // DHT 21 (AM2301)
   DHT dht(DHT_PIN, DHTTYPE);
 #endif
+#define DEBOUNCE_DELAY 50 // the debounce time; increase if the output flickers
 
 
 /* -------------------- Init Variables -------------------- */
@@ -42,8 +47,9 @@ unsigned long lastFloatDebounceTime = 0;
 unsigned long previousShowerMillis = 0;      
 int showerOnTime = 0;  // How long (in s) to turn the output io HIGH for
 
-// Evap Pump
+// Evap Pump Output
 unsigned long previousEvapMillis = 0;     
+int evapOnTime = 0;
 
 // Temperature
 int temperature;
@@ -70,6 +76,7 @@ void setup() {
   pinMode(PEDAL_PIN, INPUT);
   pinMode(FLOAT_PIN, INPUT);
   pinMode(SHOWER_PUMP_PIN, OUTPUT);
+  pinMode(EVAP_PUMP_PIN, OUTPUT);
   #if (USE_TEMP_SENSOR)
     dht.begin();
   #endif
@@ -135,7 +142,7 @@ void pollTemp() {
       // Read temperature as Fahrenheit (isFahrenheit = true)
       temperature = dht.readTemperature(true);
       Serial.print("temperature: ");Serial.print(temperature);Serial.println("°F");
-      
+      evapOnTime = EVAP_SECONDS;
     }
   #endif
 }
@@ -154,13 +161,13 @@ void showerPump(){
 }
 
 void evapPump() {
-  if(currentMillis - previousEvapMillis) {
-    if( USE_TEMP_SENSOR && (temperature > TEMP_MIN)) {
-      Serial.println("evapPump: ON");
+  if(currentMillis - previousEvapMillis > 1000) {
+    if(evapOnTime > 0) {
+      Serial.print("evapOnTime: ");Serial.println(evapOnTime);
       digitalWrite(EVAP_PUMP_PIN, HIGH);
+      evapOnTime = evapOnTime - 1;
       previousEvapMillis = currentMillis;
     } else {
-      Serial.println("evapPump: OFF");
       digitalWrite(EVAP_PUMP_PIN, LOW);
     }
   } 
