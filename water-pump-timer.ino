@@ -14,7 +14,7 @@
 #define EVAP_PUMP_PIN 6
 #define EVAP_SECONDS 1 // How long to run the evap pump every TEMP_INTERVAL
 
-#define USE_TEMP_SENSOR true
+#define USE_TEMP_SENSOR false
 #if (USE_TEMP_SENSOR)
   #define TEMP_INTERVAL 2000 // Time between polling temp sensor (minimum of 2s)
   #define DHT_PIN 5
@@ -39,16 +39,18 @@ int previousPedalState = LOW;
 unsigned long lastPedalDebounceTime = 0;
 
 // Shower Float Switch
-int floatState; // HIGH == Low Water
-int previousFloatState = LOW;
-unsigned long lastFloatDebounceTime = 0;     
+int showerFloatState; // HIGH == Low Water
+int previousShowerFloatState = LOW;
+unsigned long lastShowerFloatDebounceTime = 0;     
 
 // Shower Pump Output
 unsigned long previousShowerMillis = 0;      
 int showerOnTime = 0;  // How long (in s) to turn the output io HIGH for
 
 // Evap Float Switch
-
+int evapFloatState; // HIGH == Low Water
+int previousEvapFloatState = LOW;
+unsigned long lastEvapFloatDebounceTime = 0;   
 
 // Evap Pump Output
 unsigned long previousEvapMillis = 0;     
@@ -93,11 +95,12 @@ void loop() {
   pollFloat();
   pollTemp();
   showerPump();
+  pollEvapFloat();
   evapPump();
 }
 
 void pollPedal(){
-  if ( USE_FLOAT && floatState == LOW) return;
+  if ( USE_FLOAT && showerFloatState == LOW) return;
   int currentPedalState = digitalRead(PEDAL_PIN);
   if (currentPedalState != previousPedalState) {
     lastPedalDebounceTime = currentMillis;
@@ -119,23 +122,73 @@ void pollPedal(){
 void pollFloat(){
   #if (USE_FLOAT)
     int currentFloatState = digitalRead(FLOAT_PIN);
-    if (currentFloatState != previousFloatState) {
-      lastFloatDebounceTime = currentMillis;
+    if (currentFloatState != previousShowerFloatState) {
+      lastShowerFloatDebounceTime = currentMillis;
     }
   
-    if ((currentMillis - lastFloatDebounceTime) > DEBOUNCE_DELAY) {
-      if (currentFloatState != floatState) {
-        if (floatState == HIGH) {
-           Serial.println("floatState: HIGH - Low Water");
+    if ((currentMillis - lastShowerFloatDebounceTime) > DEBOUNCE_DELAY) {
+      if (currentFloatState != showerFloatState) {
+        if (showerFloatState == HIGH) {
+           Serial.println("showerFloatState: HIGH - Low Water");
            if (USE_FLOAT) showerOnTime = 0;
         } else {
-          Serial.println("floatState: LOW - Adequate Water");
+          Serial.println("showerFloatState: LOW - Adequate Water");
         }
-        floatState = currentFloatState;
+        showerFloatState = currentFloatState;
       }
     }
-    previousFloatState = currentFloatState;
+    previousShowerFloatState = currentFloatState;
   #endif
+}
+
+void showerPump(){
+  // TODO: use prevShowerFloatState and currentshowerFloatState
+  if(currentMillis - previousShowerMillis > 1000 || (USE_FLOAT && !showerFloatState)) {
+    if(showerOnTime > 0) {
+      Serial.print("showerOnTime: ");Serial.println(showerOnTime);
+      digitalWrite(SHOWER_PUMP_PIN, HIGH);
+      showerOnTime = showerOnTime - 1;
+      previousShowerMillis = currentMillis;
+    } else {
+      digitalWrite(SHOWER_PUMP_PIN, LOW);
+    }
+  } 
+}
+
+
+
+void pollEvapFloat(){
+  int currentEvapFloatState = digitalRead(FLOAT_PIN);
+  if (currentEvapFloatState != previousEvapFloatState) {
+    lastEvapFloatDebounceTime = currentMillis;
+  }
+
+  if ((currentMillis - lastEvapFloatDebounceTime) > DEBOUNCE_DELAY) {
+    if (currentEvapFloatState != evapFloatState) {
+      if (evapFloatState == HIGH) {
+          Serial.println("evapFloatState: HIGH - Low Water");
+          evapOnTime = 0;
+      } else {
+        Serial.println("evapFloatState: LOW - Adequate Water");
+      }
+      evapFloatState = currentEvapFloatState;
+    }
+  }
+  previousEvapFloatState = currentEvapFloatState;
+}
+
+void evapPump() {
+  // TODO: use prevShowerFloatState and currentshowerFloatState
+  if(currentMillis - previousEvapMillis > 1000 || !evapFloatState) {
+    if(evapOnTime > 0 && evapFloatState) {
+      Serial.print("evapOnTime: ");Serial.println(evapOnTime);
+      digitalWrite(EVAP_PUMP_PIN, HIGH);
+      evapOnTime = evapOnTime - 1;
+      previousEvapMillis = currentMillis;
+    } else {
+      digitalWrite(EVAP_PUMP_PIN, LOW);
+    }
+  } 
 }
 
 void pollTemp() {
@@ -151,30 +204,4 @@ void pollTemp() {
       if (temperature >= TEMP_MIN) evapOnTime = EVAP_SECONDS;
     }
   #endif
-}
-
-void showerPump(){
-  if(currentMillis - previousShowerMillis > 1000 || (USE_FLOAT && !floatState)) {
-    if(showerOnTime > 0) {
-      Serial.print("showerOnTime: ");Serial.println(showerOnTime);
-      digitalWrite(SHOWER_PUMP_PIN, HIGH);
-      showerOnTime = showerOnTime - 1;
-      previousShowerMillis = currentMillis;
-    } else {
-      digitalWrite(SHOWER_PUMP_PIN, LOW);
-    }
-  } 
-}
-
-void evapPump() {
-  if(currentMillis - previousEvapMillis > 1000) {
-    if(evapOnTime > 0) {
-      Serial.print("evapOnTime: ");Serial.println(evapOnTime);
-      digitalWrite(EVAP_PUMP_PIN, HIGH);
-      evapOnTime = evapOnTime - 1;
-      previousEvapMillis = currentMillis;
-    } else {
-      digitalWrite(EVAP_PUMP_PIN, LOW);
-    }
-  } 
 }
