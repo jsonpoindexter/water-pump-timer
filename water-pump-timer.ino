@@ -2,23 +2,24 @@
 // can be increased by each momentary switch activation.
 
 /* -------------------- Config -------------------- */
-
-#define PEDAL_PIN 2
+// https://escapequotes.net/esp8266-wemos-d1-mini-pins-and-diagram/
+#define PEDAL_PIN 16 //D0
 #define PEDAL_SECONDS 30 // How much time (in s) to add for each pedal push
 
-#define USE_FLOAT true // Use float pin in logic to turn SHOWER_PUMP_PIN HIGH
-#define FLOAT_PIN 3
+#define USE_SHOWER_FLOAT true // Use float pin in logic to turn SHOWER_PUMP_PIN HIGH
+#define SHOWER_FLOAT_PIN 5 //D1
 
-#define SHOWER_PUMP_PIN 4
+#define SHOWER_PUMP_PIN 4 // D2
 
-#define EVAP_PUMP_PIN 6
-#define EVAP_SECONDS 1 // How long to run the evap pump every TEMP_INTERVAL
+#define EVAP_FLOAT_PIN 14 // D5
+#define EVAP_PUMP_PIN 12 //D6  
+#define EVAP_SECONDS 60 * 20 // How long to run the evap pump every TEMP_INTERVAL
 
-#define USE_TEMP_SENSOR false
+#define USE_TEMP_SENSOR true
 #if (USE_TEMP_SENSOR)
   #define TEMP_INTERVAL 2000 // Time between polling temp sensor (minimum of 2s)
-  #define DHT_PIN 5
-  #define TEMP_MIN 80 // Minimum temperature to turn pump on
+  #define DHT_PIN 2 // D4
+  #define TEMP_MIN 50 // Minimum temperature to turn pump on
   #include <Adafruit_Sensor.h>
   #include <DHT.h>
   // REQUIRES the following Arduino libraries:
@@ -66,11 +67,13 @@ void setup() {
   Serial.begin(9600);
   delay(1);
   Serial.println("-------------------- Config --------------------");
-  Serial.print("USE_FLOAT: "); if (USE_FLOAT) Serial.println("TRUE"); else  Serial.println("FALSE");
+  Serial.print("USE_SHOWER_FLOAT: "); if (USE_SHOWER_FLOAT) Serial.println("TRUE"); else  Serial.println("FALSE");
   Serial.print("PEDAL_SECONDS: "); Serial.println(PEDAL_SECONDS);
   Serial.print("PEDAL_PIN: "); Serial.println(PEDAL_PIN);
-  Serial.print("FLOAT_PIN: "); Serial.println(FLOAT_PIN);
+  Serial.print("SHOWER_FLOAT_PIN: "); Serial.println(SHOWER_FLOAT_PIN);
   Serial.print("SHOWER_PUMP_PIN: "); Serial.println(SHOWER_PUMP_PIN);
+  Serial.print("EVAP_PUMP_PIN: "); Serial.println(EVAP_PUMP_PIN);
+  Serial.print("EVAP_FLOAT_PIN: "); Serial.println(EVAP_FLOAT_PIN);
   Serial.print("DEBOUNCE_DELAY(ms): "); Serial.println(DEBOUNCE_DELAY);
   #if (USE_TEMP_SENSOR)
     Serial.print("TEMP_MIN: "); Serial.println(TEMP_MIN);
@@ -80,8 +83,9 @@ void setup() {
   Serial.println("------------------------------------------------\n");
 
   pinMode(PEDAL_PIN, INPUT);
-  pinMode(FLOAT_PIN, INPUT);
+  pinMode(SHOWER_FLOAT_PIN, INPUT);
   pinMode(SHOWER_PUMP_PIN, OUTPUT);
+  pinMode(EVAP_FLOAT_PIN, INPUT);
   pinMode(EVAP_PUMP_PIN, OUTPUT);
   #if (USE_TEMP_SENSOR)
     dht.begin();
@@ -92,15 +96,15 @@ void setup() {
 void loop() {
   currentMillis = millis();
   pollPedal();
-  pollFloat();
-  pollTemp();
+  pollShowerFloat();
   showerPump();
   pollEvapFloat();
+  pollTemp();
   evapPump();
 }
 
 void pollPedal(){
-  if ( USE_FLOAT && showerFloatState == LOW) return;
+  if ( USE_SHOWER_FLOAT && showerFloatState == LOW) return;
   int currentPedalState = digitalRead(PEDAL_PIN);
   if (currentPedalState != previousPedalState) {
     lastPedalDebounceTime = currentMillis;
@@ -119,9 +123,9 @@ void pollPedal(){
   
 }
 
-void pollFloat(){
-  #if (USE_FLOAT)
-    int currentFloatState = digitalRead(FLOAT_PIN);
+void pollShowerFloat(){
+  #if (USE_SHOWER_FLOAT)
+    int currentFloatState = digitalRead(SHOWER_FLOAT_PIN);
     if (currentFloatState != previousShowerFloatState) {
       lastShowerFloatDebounceTime = currentMillis;
     }
@@ -130,7 +134,7 @@ void pollFloat(){
       if (currentFloatState != showerFloatState) {
         if (showerFloatState == HIGH) {
            Serial.println("showerFloatState: HIGH - Low Water");
-           if (USE_FLOAT) showerOnTime = 0;
+           if (USE_SHOWER_FLOAT) showerOnTime = 0;
         } else {
           Serial.println("showerFloatState: LOW - Adequate Water");
         }
@@ -143,7 +147,7 @@ void pollFloat(){
 
 void showerPump(){
   // TODO: use prevShowerFloatState and currentshowerFloatState
-  if(currentMillis - previousShowerMillis > 1000 || (USE_FLOAT && !showerFloatState)) {
+  if(currentMillis - previousShowerMillis > 1000 || (USE_SHOWER_FLOAT && !showerFloatState)) {
     if(showerOnTime > 0) {
       Serial.print("showerOnTime: ");Serial.println(showerOnTime);
       digitalWrite(SHOWER_PUMP_PIN, HIGH);
@@ -155,26 +159,24 @@ void showerPump(){
   } 
 }
 
-
-
 void pollEvapFloat(){
-  int currentEvapFloatState = digitalRead(FLOAT_PIN);
-  if (currentEvapFloatState != previousEvapFloatState) {
+  int currentFloatState = digitalRead(EVAP_FLOAT_PIN);
+  if (currentFloatState != previousEvapFloatState) {
     lastEvapFloatDebounceTime = currentMillis;
   }
 
   if ((currentMillis - lastEvapFloatDebounceTime) > DEBOUNCE_DELAY) {
-    if (currentEvapFloatState != evapFloatState) {
+    if (currentFloatState != evapFloatState) {
       if (evapFloatState == HIGH) {
           Serial.println("evapFloatState: HIGH - Low Water");
           evapOnTime = 0;
       } else {
         Serial.println("evapFloatState: LOW - Adequate Water");
       }
-      evapFloatState = currentEvapFloatState;
+      evapFloatState = currentFloatState;
     }
   }
-  previousEvapFloatState = currentEvapFloatState;
+  previousEvapFloatState = currentFloatState;
 }
 
 void evapPump() {
