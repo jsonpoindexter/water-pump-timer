@@ -3,22 +3,22 @@
 
 /* -------------------- Config -------------------- */
 // https://escapequotes.net/esp8266-wemos-d1-mini-pins-and-diagram/
-#define PEDAL_PIN 16 //D0
-#define PEDAL_SECONDS 30 // How much time (in s) to add for each pedal push
+#define PEDAL_PIN 16 // Wemos: D0
+#define PEDAL_SECONDS 10 // How much time (in s) to add for each pedal push
 
 #define USE_SHOWER_FLOAT true // Use float pin in logic to turn SHOWER_PUMP_PIN HIGH
-#define SHOWER_FLOAT_PIN 14 // D5
+#define SHOWER_FLOAT_PIN 14 // Wemos: D5
 
-#define SHOWER_PUMP_PIN 12 // D6
+#define SHOWER_PUMP_PIN 12 // Wemos: D6
 
-#define EVAP_FLOAT_PIN 13 // D7 
-#define EVAP_PUMP_PIN 15 //D8  
+#define EVAP_FLOAT_PIN 13 // Wemos:  D7 
+#define EVAP_PUMP_PIN 15 // Wemos: D8  
 #define EVAP_SECONDS 60 * 1 // How long to run the evap pump every TEMP_INTERVAL
 
 #define USE_TEMP_SENSOR true
 #if (USE_TEMP_SENSOR)
   #define TEMP_INTERVAL 1000 * 60 * 10 // (Ms) Time between polling temp sensor (minimum of 2s)
-  #define DHT_PIN 5  // D1
+  #define DHT_PIN 5  // Wemos: D1
   #define TEMP_MIN 70 // Minimum temperature to turn pump on
   #include <Adafruit_Sensor.h>
   #include <DHT.h>
